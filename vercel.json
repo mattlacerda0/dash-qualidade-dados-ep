@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/ep-unfilled.js": {
+      "maxDuration": 60
+    }
+  }
+}

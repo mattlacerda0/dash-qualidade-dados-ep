@@ -44,6 +44,7 @@ const state = {
 };
 
 let eventsBound = false;
+const DATA_FETCH_TIMEOUT_MS = 45_000;
 
 function $(id) {
   return document.getElementById(id);
@@ -618,16 +619,25 @@ async function loadData({ force = false } = {}) {
   state.loading = true;
   state.error = null;
   renderDashboard();
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), DATA_FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(`/api/ep-unfilled${force ? "?force=1" : ""}`);
+    const response = await fetch(`/api/ep-unfilled${force ? "?force=1" : ""}`, {
+      signal: controller.signal,
+    });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(body.error || `HTTP ${response.status}`);
     }
     state.payload = body;
   } catch (error) {
-    state.error = error instanceof Error ? error.message : "Falha ao carregar.";
+    state.error = error?.name === "AbortError"
+      ? "A consulta demorou demais para responder. Tente atualizar novamente."
+      : error instanceof Error
+        ? error.message
+        : "Falha ao carregar.";
   } finally {
+    window.clearTimeout(timeoutId);
     state.loading = false;
     renderDashboard();
   }

@@ -9,6 +9,8 @@ Não faz parte do `dash-simplificado`: tem frontend, API e processo próprios. N
 - Node.js 18+
 - Variáveis `DATA_SUPABASE_*` (BASE QV, somente leitura)
 
+No Vercel, configure `DATA_SUPABASE_URL` e `DATA_SUPABASE_SERVICE_ROLE_KEY` em **Project Settings → Environment Variables**. O deploy usa `api/ep-unfilled.js` como função serverless e serve os módulos públicos em `public/lib/`.
+
 Se o `.env` local estiver vazio, o servidor de desenvolvimento tenta as mesmas chaves do `.env` do `dash-simplificado` (sem copiar o arquivo).
 
 ## Setup
