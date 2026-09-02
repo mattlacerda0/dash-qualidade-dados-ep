@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dados não preenchidos por EP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app" id="appShell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Dashboard standalone</p>
+        <h1>Dados não preenchidos por EP</h1>
+        <p class="subtitle">Completude cadastral da carteira atual · padrão Ativos · BASE QV</p>
+      </div>
+      <div class="topbar-meta" id="metaLine">Carregando…</div>
+    </header>
+
+    <section class="methodology" id="methodology">
+      <p>O preenchimento é medido na carteira do EP atualmente vinculado ao cliente. Valores nulos e textos em branco contam como vazios.</p>
+      <ul>
+        <li>Atribuição usa <code>clients.engenheiro_patrimonial</code> atual. O histórico de EPs não entra no recorte.</li>
+        <li>O status segue o contrato analítico de Dados Gerais. A página abre em clientes ativos.</li>
+        <li>Campos de jornada, reuniões, tarefas e mecanismos medem presença na carteira, não a qualidade do conteúdo.</li>
+        <li>O ranking de EPs considera apenas carteiras com pelo menos 5 clientes no recorte.</li>
+      </ul>
+    </section>
+
+    <section class="filters" id="globalFilters" aria-label="Filtros globais">
+      <label>
+        <span>Busca</span>
+        <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
+      </label>
+      <label>
+        <span>Programa</span>
+        <select id="fProgram"></select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select id="fStatus"></select>
+      </label>
+      <div class="filter-actions">
+        <button type="button" class="btn secondary" id="btnResetGlobal">Limpar filtros</button>
+        <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+      </div>
+    </section>
+
+    <div id="pageError" class="error-banner hidden" role="alert"></div>
+    <div id="pageStatus" class="gd-status hidden" role="status"></div>
+    <div id="pageContent"></div>
+
+    <footer class="footer">
+      Fontes: clients · client_financial_data · client_journeys · client_meetings · manual_meetings · meeting_attendance · tasks · client_mecanismos · cancellations
+    </footer>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

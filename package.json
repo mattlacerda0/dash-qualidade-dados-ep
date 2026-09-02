@@ -1,0 +1,12 @@
+{
+  "name": "dashboard-dados-nao-preenchidos-ep",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dashboard standalone de dados não preenchidos por EP",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "start": "node scripts/dev-server.mjs",
+    "test": "node --test tests/**/*.test.mjs"
+  }
+}
