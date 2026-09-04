@@ -127,12 +127,18 @@ test("remove EP excluído do recorte Core/Pharus", () => {
     allocations: [
       { customer_id: "u1", internal_id: "i1" },
       { customer_id: "u2", internal_id: "i2" },
+      { customer_id: "u3", internal_id: "i3" },
     ],
     internals: [
       { internal_id: "i1", name: "Raphael R. D'Avila" },
       { internal_id: "i2", name: "EP Mantido" },
+      { internal_id: "i3", name: "Engenheiro Patrimonial Teste" },
     ],
-    personalInfo: [{ user_id: "u1", name: "Cliente removido" }, { user_id: "u2", name: "Cliente mantido" }],
+    personalInfo: [
+      { user_id: "u1", name: "Cliente removido" },
+      { user_id: "u2", name: "Cliente mantido" },
+      { user_id: "u3", name: "Cliente teste" },
+    ],
   });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].engineer, "EP Mantido");
