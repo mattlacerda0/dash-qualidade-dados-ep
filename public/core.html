@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dados não preenchidos por EP</title>
+  <title>Dados não preenchidos por EP - App Pharus</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Carme&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -13,23 +13,23 @@
   <div class="app" id="appShell">
     <header class="topbar">
       <div>
-        <h1>Dados não preenchidos por EP</h1>
-        <p class="subtitle">Completude cadastral da carteira atual · padrão Ativos · BASE QV</p>
+        <h1>Dados não preenchidos por EP - App Pharus</h1>
+        <p class="subtitle">Completude dos campos correlacionados · projeto qvtqufdivpbmubooawdm · schema core</p>
       </div>
       <div class="topbar-side">
         <div class="topbar-meta" id="metaLine">Carregando…</div>
         <nav class="screen-nav" aria-label="Navegação entre dashboards">
-          <a class="btn secondary" href="/core.html">App Pharus</a>
+          <a class="btn secondary" href="/">BaseQV</a>
         </nav>
       </div>
     </header>
 
     <section class="methodology" id="methodology">
-      <p>O preenchimento é medido na carteira do EP atualmente vinculado ao cliente. Valores nulos e textos em branco contam como vazios.</p>
+      <p>O preenchimento é medido por clientes alocados ao EP no App Pharus. Valores nulos e textos em branco contam como vazios.</p>
       <ul>
-        <li>Atribuição usa <code>clients.engenheiro_patrimonial</code> atual. O histórico de EPs não entra no recorte.</li>
-        <li>O status segue o contrato analítico de Dados Gerais. A página abre em clientes ativos.</li>
-        <li>Campos de jornada, reuniões, tarefas e mecanismos medem presença na carteira, não a qualidade do conteúdo.</li>
+        <li>Atribuição usa <code>backoffice.internals_customers_allocations</code> e <code>backoffice.internal_profile</code> quando disponíveis.</li>
+        <li>A tela considera apenas campos com correlação direta, equivalente ou derivada no de-para BaseQV/Core.</li>
+        <li>Campos 1:N medem presença de ao menos um registro válido por cliente, não a qualidade do conteúdo.</li>
         <li>O ranking de EPs considera apenas carteiras com pelo menos 5 clientes no recorte.</li>
       </ul>
     </section>
@@ -37,11 +37,11 @@
     <section class="filters" id="globalFilters" aria-label="Filtros globais">
       <label>
         <span>Busca</span>
-        <input type="search" id="fSearch" placeholder="Nome, código ou ID" />
+        <input type="search" id="fSearch" placeholder="Nome ou ID" />
       </label>
       <label>
-        <span>Programa</span>
-        <select id="fProgram"></select>
+        <span>EP</span>
+        <select id="fEngineer"></select>
       </label>
       <label>
         <span>Status</span>
@@ -58,10 +58,10 @@
     <div id="pageContent"></div>
 
     <footer class="footer">
-      Fontes: clients · client_financial_data · client_journeys · client_meetings · manual_meetings · meeting_attendance · tasks · client_mecanismos · cancellations
+      Fontes: core.personal_info · core.user_engines · core.form_submissions · core.scheduled_meetings · core.meeting_outputs · core.user_mechanisms · core.real_estate_assets · core.user_payments · core.user_contracts · backoffice.internals_customers_allocations · backoffice.internal_profile
     </footer>
   </div>
 
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/core-app.js"></script>
 </body>
 </html>

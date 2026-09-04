@@ -2,6 +2,9 @@
   "functions": {
     "api/ep-unfilled.js": {
       "maxDuration": 60
+    },
+    "api/core-ep-unfilled.js": {
+      "maxDuration": 60
     }
   }
 }

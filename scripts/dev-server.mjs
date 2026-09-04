@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { handleCoreEpUnfilledApi } from "../lib/api/core-ep-unfilled-handler.mjs";
 import { handleEpUnfilledApi } from "../lib/api/ep-unfilled-handler.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -58,6 +59,14 @@ function loadLocalEnv() {
   return {
     dataUrl: Boolean(String(process.env.DATA_SUPABASE_URL || "").trim()),
     dataKey: Boolean(String(process.env.DATA_SUPABASE_SERVICE_ROLE_KEY || "").trim()),
+    coreUrl: Boolean(String(process.env.CORE_SUPABASE_URL || process.env.PHARUS_SUPABASE_URL || "").trim()),
+    coreKey: Boolean(String(
+      process.env.CORE_SUPABASE_SERVICE_ROLE_KEY
+      || process.env.PHARUS_SUPABASE_SERVICE_ROLE_KEY
+      || process.env.CORE_SUPABASE_ANON_KEY
+      || process.env.PHARUS_SUPABASE_ANON_KEY
+      || "",
+    ).trim()),
   };
 }
 
@@ -75,6 +84,8 @@ function sendJson(res, status, body) {
 
 const BROWSER_LIB = new Set([
   "/lib/catalog.mjs",
+  "/lib/core-catalog.mjs",
+  "/lib/core-filters.mjs",
   "/lib/filters.mjs",
   "/lib/program.mjs",
   "/lib/search.mjs",
@@ -121,6 +132,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (apiPath === "/api/core-ep-unfilled") {
+    loadLocalEnv();
+    try {
+      await handleCoreEpUnfilledApi(req, res);
+    } catch (error) {
+      console.error("[dev] core-ep-unfilled", error);
+      if (!res.headersSent) {
+        sendJson(res, 500, { error: "Falha interna.", code: "INTERNAL" });
+      }
+    }
+    return;
+  }
+
   if (apiPath === "/api/health") {
     sendJson(res, 200, { ok: true, service: "dashboard-dados-nao-preenchidos-ep" });
     return;
@@ -147,4 +171,5 @@ server.listen(PORT, () => {
   const env = loadLocalEnv();
   console.log(`Dados não preenchidos por EP em http://localhost:${PORT}`);
   console.log(`BASE QV: ${env.dataUrl && env.dataKey ? "ok" : "AUSENTE — preencha DATA_SUPABASE_*"}`);
+  console.log(`APP PHARUS/Core: ${env.coreUrl && env.coreKey ? "ok" : "AUSENTE — preencha CORE_SUPABASE_* ou PHARUS_SUPABASE_*"}`);
 });
