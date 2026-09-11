@@ -121,6 +121,59 @@ h3 {
   text-decoration: none;
 }
 
+.screen-nav .btn.is-current {
+  background: var(--foreground);
+  color: var(--color-white);
+  border-color: var(--foreground);
+}
+
+.compare-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.compare-filters .filters {
+  margin-bottom: 0;
+}
+
+.compare-filter-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.filter-group-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.hbar-compare {
+  grid-template-columns: minmax(80px, 220px) 1fr minmax(120px, 180px);
+}
+
+.hbar-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hbar-fill.qv { background: var(--primary); }
+.hbar-fill.pharus { background: var(--foreground); }
+
+.hbar-pair-values {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
 .user-row {
   display: flex;
   gap: 8px;
@@ -392,4 +445,7 @@ select:focus-visible {
   .chart-grid { grid-template-columns: 1fr; }
   .hbar { grid-template-columns: 1fr; }
   .hbar-value { text-align: left; }
+  .compare-filters { grid-template-columns: 1fr; }
+  .hbar-compare { grid-template-columns: 1fr; }
+  .hbar-pair-values { text-align: left; }
 }
