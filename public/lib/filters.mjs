@@ -57,6 +57,10 @@ export function defaultTableLocalFilters() {
   };
 }
 
+export function defaultClientTableFilters() {
+  return { ...defaultTableLocalFilters(), scope: "indicators" };
+}
+
 export function normalizeEpUnfilledStatus(value) {
   return ALLOWED_STATUS.has(value) ? value : DEFAULT_STATUS_FILTER;
 }
@@ -88,6 +92,7 @@ export function catalogForLocalFilters(localFilters = {}) {
   const fieldId = normalizeEpUnfilledField(next.field);
   let fields = visibleCatalogFields(domain);
   if (fieldId !== "all") fields = fields.filter((field) => field.id === fieldId);
+  if (next.scope === "indicators") fields = fields.filter((field) => EP_UNFILLED_PRIORITY_FIELD_IDS.includes(field.id));
   return fields;
 }
 
@@ -248,6 +253,7 @@ export function summarizePriorityFields(clients = []) {
 export function summarizeEmptyClients(clients = [], localFilters = {}) {
   const next = { ...defaultTableLocalFilters(), ...localFilters };
   const engineer = next.engineer && next.engineer !== "all" ? String(next.engineer) : "all";
+  const priorityIds = new Set(EP_UNFILLED_PRIORITY_FIELD_IDS);
   const fields = catalogForLocalFilters(next);
   const scoped = engineer === "all"
     ? clients
@@ -256,13 +262,19 @@ export function summarizeEmptyClients(clients = [], localFilters = {}) {
   return scoped
     .map((client) => {
       const empty = fields.filter((field) => !client?.fills?.[field.id]);
-      const filled = fields.length - empty.length;
-      const fillPercent = fields.length ? round1((filled / fields.length) * 100) : 0;
+      const priorityEmpty = empty.filter((field) => priorityIds.has(field.id));
+      const otherEmpty = empty.filter((field) => !priorityIds.has(field.id));
+      const filled = EP_UNFILLED_CATALOG.filter((field) => client?.fills?.[field.id]).length;
+      const fillPercent = EP_UNFILLED_CATALOG.length ? round1((filled / EP_UNFILLED_CATALOG.length) * 100) : 0;
       return {
         engineer: client.engineer || "Não informado",
         clientName: client.clientName || "Não informado",
         clientCode: client.clientCode || "—",
         clientId: client.clientId,
+        priorityEmptyFields: priorityEmpty.map((field) => field.label).join(", "),
+        priorityEmptyCount: priorityEmpty.length,
+        otherEmptyFields: otherEmpty.map((field) => field.label).join(", "),
+        otherEmptyCount: otherEmpty.length,
         emptyFields: empty.map((field) => field.label).join(", ") || "—",
         emptyCount: empty.length,
         fillPercent,

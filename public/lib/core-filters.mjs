@@ -35,6 +35,10 @@ export function defaultCoreTableLocalFilters() {
   };
 }
 
+export function defaultCoreClientTableFilters() {
+  return { ...defaultCoreTableLocalFilters(), scope: "indicators" };
+}
+
 export function normalizeCoreStatus(value) {
   return ALLOWED_STATUS.has(value) ? value : DEFAULT_CORE_STATUS_FILTER;
 }
@@ -65,6 +69,7 @@ export function coreCatalogForLocalFilters(localFilters = {}) {
   let fields = visibleCoreCatalogFields(next.domain);
   const fieldId = normalizeCoreField(next.field);
   if (fieldId !== "all") fields = fields.filter((field) => field.id === fieldId);
+  if (next.scope === "indicators") fields = fields.filter((field) => CORE_EP_UNFILLED_PRIORITY_FIELD_IDS.includes(field.id));
   return fields;
 }
 
@@ -229,20 +234,26 @@ export function summarizeCoreEpTable(clients = [], localFilters = {}) {
 export function summarizeCoreEmptyClients(clients = [], localFilters = {}) {
   const next = { ...defaultCoreTableLocalFilters(), ...localFilters };
   const fields = coreCatalogForLocalFilters(next);
+  const priorityIds = new Set(CORE_EP_UNFILLED_PRIORITY_FIELD_IDS);
   const engineer = next.engineer && next.engineer !== "all" ? String(next.engineer) : "all";
   const scoped = engineer === "all" ? clients : clients.filter((row) => String(row.engineer || "Não informado") === engineer);
   return scoped
     .map((client) => {
       const empty = fields.filter((field) => !client?.fills?.[field.id]);
-      const filled = fields.length - empty.length;
+      const priorityEmpty = empty.filter((field) => priorityIds.has(field.id));
+      const otherEmpty = empty.filter((field) => !priorityIds.has(field.id));
+      const filled = CORE_EP_UNFILLED_CATALOG.filter((field) => client?.fills?.[field.id]).length;
       return {
         engineer: client.engineer || "Não informado",
         clientName: client.clientName || "Não informado",
         clientCode: client.clientCode || "—",
         clientId: client.clientId,
-        emptyFields: empty.map((field) => field.label).join(", ") || "—",
+        priorityEmptyFields: priorityEmpty.map((field) => field.label).join(", "),
+        priorityEmptyCount: priorityEmpty.length,
+        otherEmptyFields: otherEmpty.map((field) => field.label).join(", "),
+        otherEmptyCount: otherEmpty.length,
         emptyCount: empty.length,
-        fillPercent: fields.length ? round1((filled / fields.length) * 100) : 0,
+        fillPercent: CORE_EP_UNFILLED_CATALOG.length ? round1((filled / CORE_EP_UNFILLED_CATALOG.length) * 100) : 0,
       };
     })
     .filter((row) => row.emptyCount > 0)

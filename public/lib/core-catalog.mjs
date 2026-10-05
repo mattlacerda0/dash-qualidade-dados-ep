@@ -29,7 +29,6 @@ export const CORE_EP_UNFILLED_SEVERITY_OPTIONS = [
 ];
 
 export const CORE_EP_UNFILLED_PRIORITY_FIELD_IDS = [
-  "phone",
   "cpf",
   "occupation",
   "birth_date",

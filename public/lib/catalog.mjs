@@ -31,7 +31,6 @@ export const EP_UNFILLED_SEVERITY_OPTIONS = [
 /** Campos do gráfico “Lacunas de preenchimento dos principais campos”. */
 export const EP_UNFILLED_PRIORITY_FIELD_IDS = [
   "email",
-  "phone",
   "cpf",
   "data_inicio_ciclo",
   "objetivo_principal",

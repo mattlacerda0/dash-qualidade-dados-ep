@@ -12,6 +12,7 @@ import {
 } from "../lib/catalog.mjs";
 import {
   defaultEpUnfilledFilters,
+  defaultClientTableFilters,
   defaultTableLocalFilters,
   filterEpUnfilledClients,
   summarizeEmptyClients,
@@ -20,6 +21,7 @@ import {
   summarizeFieldTable,
   summarizePriorityFields,
 } from "../lib/filters.mjs";
+import { summarizeEmptyClients as summarizeBrowserEmptyClients } from "../public/lib/filters.mjs";
 
 function fills(overrides = {}) {
   const base = Object.fromEntries(EP_UNFILLED_CATALOG.map((field) => [field.id, true]));
@@ -214,8 +216,9 @@ test("domínio e faixa recortam só a tabela pedida", () => {
   assert.ok(epDomain[0].completeness < 100);
 });
 
-test("campos principais são 16 IDs fechados e o gráfico ordena por lacuna", () => {
-  assert.equal(EP_UNFILLED_PRIORITY_FIELD_IDS.length, 16);
+test("campos principais excluem telefone e o gráfico ordena por lacuna", () => {
+  assert.equal(EP_UNFILLED_PRIORITY_FIELD_IDS.length, 15);
+  assert.ok(!EP_UNFILLED_PRIORITY_FIELD_IDS.includes("phone"));
   assert.equal(EP_UNFILLED_PRIORITY_CHART_LIMIT, 10);
   for (const id of EP_UNFILLED_PRIORITY_FIELD_IDS) {
     assert.ok(EP_UNFILLED_CATALOG.some((field) => field.id === id), id);
@@ -225,7 +228,8 @@ test("campos principais são 16 IDs fechados e o gráfico ordena por lacuna", ()
     client({ clientId: "2", clientName: "Bruno", fills: fills({ email: false }) }),
   ];
   const priority = summarizePriorityFields(rows);
-  assert.equal(priority.length, 16);
+  assert.equal(priority.length, 15);
+  assert.ok(!priority.some((row) => row.id === "phone"));
   assert.equal(priority[0].id, "email");
   assert.ok(priority[0].missingPercent >= priority[1].missingPercent);
   assert.equal(priority.slice(0, EP_UNFILLED_PRIORITY_CHART_LIMIT).length, 10);
@@ -267,4 +271,44 @@ test("detalhe por cliente lista vazios e isola filtros locais", () => {
   assert.equal(onlyEmail.length, 1);
   assert.equal(onlyEmail[0].clientName, "Ana");
   assert.equal(onlyEmail[0].emptyCount, 1);
+});
+
+test("detalhe por cliente abre em campos dos indicadores e pode mostrar todos", () => {
+  const rows = [client({ fills: fills({ email: false, phone: false, drive_link: false }) })];
+  const defaults = defaultClientTableFilters();
+  assert.equal(defaults.scope, "indicators");
+  const [indicators] = summarizeEmptyClients(rows, defaults);
+  assert.equal(indicators.priorityEmptyFields, "E-mail");
+  assert.equal(indicators.priorityEmptyCount, 1);
+  assert.equal(indicators.otherEmptyCount, 0);
+  assert.equal(indicators.emptyCount, 1);
+
+  const [all] = summarizeEmptyClients(rows, { ...defaults, scope: "all" });
+  assert.equal(all.otherEmptyFields, "Telefone, Link do Drive");
+  assert.equal(all.otherEmptyCount, 2);
+  assert.equal(all.emptyCount, 3);
+  assert.equal(indicators.fillPercent, all.fillPercent);
+  assert.deepEqual(summarizeBrowserEmptyClients(rows, defaults), [indicators]);
+  assert.deepEqual(summarizeBrowserEmptyClients(rows, { ...defaults, scope: "all" }), [all]);
+});
+
+test("tabelas de campos e EPs alternam entre indicadores e catálogo completo", () => {
+  const rows = [client({ fills: fills({ email: false, phone: false, drive_link: false }) })];
+  const indicators = defaultClientTableFilters();
+  const all = { ...indicators, scope: "all" };
+  assert.equal(summarizeFieldTable(rows, indicators).length, EP_UNFILLED_PRIORITY_FIELD_IDS.length);
+  assert.equal(summarizeFieldTable(rows, all).length, EP_UNFILLED_CATALOG.length);
+  assert.equal(summarizeFieldTable(rows, indicators).some((row) => row.id === "drive_link"), false);
+  assert.equal(summarizeFieldTable(rows, indicators).some((row) => row.id === "phone"), false);
+  assert.equal(summarizeFieldTable(rows, all).some((row) => row.id === "drive_link"), true);
+  assert.ok(summarizeEpTable(rows, indicators)[0].completeness > summarizeEpTable(rows, all)[0].completeness);
+});
+
+test("ranking principal por EP ignora campos não prioritários", () => {
+  const rows = Array.from({ length: EP_UNFILLED_MIN_PORTFOLIO }, (_, index) =>
+    client({ clientId: `rank${index}`, fills: fills({ email: false, phone: false, hobbies: false }) }),
+  );
+  const [ranked] = summarizeEpTable(rows, { scope: "indicators" }).filter((row) => row.rankEligible);
+  assert.equal(ranked.worstField, "E-mail");
+  assert.ok(ranked.completeness > summarizeEpTable(rows, { scope: "all" })[0].completeness);
 });

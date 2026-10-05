@@ -1,13 +1,14 @@
 import {
   EP_UNFILLED_DOMAINS,
   EP_UNFILLED_MIN_PORTFOLIO,
+  EP_UNFILLED_PRIORITY_FIELD_IDS,
   EP_UNFILLED_PRIORITY_CHART_LIMIT,
   EP_UNFILLED_SEVERITY_OPTIONS,
   EP_UNFILLED_STATUS_OPTIONS,
 } from "/lib/catalog.mjs";
 import {
   defaultGlobalFilters,
-  defaultTableLocalFilters,
+  defaultClientTableFilters,
   engineerSelectOptions,
   fieldSelectOptions,
   filterEpUnfilledClients,
@@ -27,9 +28,9 @@ const state = {
   loading: false,
   error: null,
   global: defaultGlobalFilters(),
-  fieldTable: defaultTableLocalFilters(),
-  epTable: defaultTableLocalFilters(),
-  clientTable: defaultTableLocalFilters(),
+  fieldTable: defaultClientTableFilters(),
+  epTable: defaultClientTableFilters(),
+  clientTable: defaultClientTableFilters(),
   sortKey: "missingPercent",
   sortDir: "desc",
   epSortKey: "completeness",
@@ -124,8 +125,9 @@ function hBars(items) {
 
 function csvEscape(value) {
   const text = value == null ? "" : String(value);
-  if (/[",\n;]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
+  const safe = /^[\s\uFEFF]*[=+@\-]/.test(text) && typeof value === "string" ? `'${text}` : text;
+  if (/["\r\n;]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+  return safe;
 }
 
 function downloadCsv(filename, columns, rows) {
@@ -138,15 +140,28 @@ function downloadCsv(filename, columns, rows) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+    link.remove();
+  }, 1_000);
 }
 
 function tableFilterBar(prefix, filters, engineers, options = {}) {
   const showSeverity = options.showSeverity !== false;
-  const domainOptions = [{ value: "all", label: "Todos" }, ...EP_UNFILLED_DOMAINS.map((domain) => ({ value: domain, label: domain }))];
-  const fields = fieldSelectOptions(filters.domain);
+  const domains = options.showScope && filters.scope === "indicators"
+    ? EP_UNFILLED_DOMAINS.filter((domain) => fieldSelectOptions(domain).some((field) => EP_UNFILLED_PRIORITY_FIELD_IDS.includes(field.value)))
+    : EP_UNFILLED_DOMAINS;
+  const domainOptions = [{ value: "all", label: "Todos" }, ...domains.map((domain) => ({ value: domain, label: domain }))];
+  const fields = fieldSelectOptions(filters.domain).filter(
+    (field) => !options.showScope || filters.scope !== "indicators" || EP_UNFILLED_PRIORITY_FIELD_IDS.includes(field.value),
+  );
   return `<div class="filter-bar" data-table="${prefix}">
+    ${options.showScope ? `<label><span>Campos</span><select id="${prefix}Scope">
+      <option value="indicators"${filters.scope === "indicators" ? " selected" : ""}>Campos utilizados em indicadores</option>
+      <option value="all"${filters.scope === "all" ? " selected" : ""}>Todos os campos</option>
+    </select></label>` : ""}
     <label><span>EP</span>
       <select id="${prefix}Engineer">${[{ value: "all", label: "Todos" }, ...engineers.map((name) => ({ value: name, label: name }))]
         .map((item) => `<option value="${escapeHtml(item.value)}"${item.value === filters.engineer ? " selected" : ""}>${escapeHtml(item.label)}</option>`)
@@ -183,21 +198,24 @@ function bindTableFilters(prefix, key) {
     domain: $(`${prefix}Domain`)?.value || "all",
     field: $(`${prefix}Field`)?.value || "all",
     severity: $(`${prefix}Severity`)?.value || "all",
+    ...($(`${prefix}Scope`) ? { scope: $(`${prefix}Scope`).value } : {}),
   });
   const apply = () => {
     const next = read();
     const prevDomain = state[key].domain;
+    if (next.scope === "indicators" && next.domain !== "all"
+      && !fieldSelectOptions(next.domain).some((field) => EP_UNFILLED_PRIORITY_FIELD_IDS.includes(field.value))) next.domain = "all";
     state[key] = next;
-    if (next.domain !== prevDomain) state[key].field = "all";
+    if (next.domain !== prevDomain || (next.scope === "indicators" && !EP_UNFILLED_PRIORITY_FIELD_IDS.includes(next.field))) state[key].field = "all";
     if (key === "epTable") state.page = 1;
     if (key === "clientTable") state.clientPage = 1;
     renderDashboard();
   };
-  ["Engineer", "Domain", "Field", "Severity"].forEach((suffix) => {
+  ["Scope", "Engineer", "Domain", "Field", "Severity"].forEach((suffix) => {
     $(`${prefix}${suffix}`)?.addEventListener("change", apply);
   });
   document.querySelector(`[data-clear="${prefix}"]`)?.addEventListener("click", () => {
-    state[key] = defaultTableLocalFilters();
+    state[key] = defaultClientTableFilters();
     if (key === "epTable") state.page = 1;
     if (key === "clientTable") state.clientPage = 1;
     renderDashboard();
@@ -211,7 +229,8 @@ function currentView() {
   const engineers = sortRows(summarizeEpTable(clients, state.epTable), state.epSortKey, state.epSortDir);
   const emptyClients = sortRows(summarizeEmptyClients(clients, state.clientTable), state.clientSortKey, state.clientSortDir);
   const priorityFields = summarizePriorityFields(clients);
-  return { clients, summary, fields, engineers, emptyClients, priorityFields };
+  const rankedEngineers = summarizeEpTable(clients, { scope: "indicators" }).filter((row) => row.rankEligible);
+  return { clients, summary, fields, engineers, emptyClients, priorityFields, rankedEngineers };
 }
 
 function renderDashboard() {
@@ -249,11 +268,11 @@ function renderDashboard() {
   status.hidden = true;
   status.classList.add("hidden");
 
-  const { summary, fields, engineers, clients, emptyClients, priorityFields } = currentView();
-  const topFields = summary.topMissingFields.slice(0, 3);
-  const worstEps = summary.rankedEngineers.slice(0, 3);
+  const { summary, fields, engineers, clients, emptyClients, priorityFields, rankedEngineers } = currentView();
+  const topFields = priorityFields.slice(0, 3);
+  const worstEps = rankedEngineers.slice(0, 3);
   const engineerOptions = engineerSelectOptions(clients);
-  const rankedBars = state.showAllEngineers ? summary.rankedEngineers : summary.rankedEngineers.slice(0, 8);
+  const rankedBars = state.showAllEngineers ? rankedEngineers : rankedEngineers.slice(0, 8);
   const priorityBars = state.showAllPriorityFields
     ? priorityFields
     : priorityFields.slice(0, EP_UNFILLED_PRIORITY_CHART_LIMIT);
@@ -270,7 +289,10 @@ function renderDashboard() {
 
   content.innerHTML = `
     <section class="section-block" id="euSecSummary">
-      <h2>1. Resumo</h2>
+      <div class="table-toolbar">
+        <h2>1. Resumo</h2>
+        <button type="button" class="btn secondary" id="exportSummary">Exportar CSV</button>
+      </div>
       <p class="note-muted">Leitura da completude cadastral no recorte filtrado. A página abre em clientes ativos.</p>
       <div class="kpi-row">
         ${kpiCard("Completude média", pctLabel(summary.averageFill), "Média dos campos do recorte", { featured: true })}
@@ -281,8 +303,11 @@ function renderDashboard() {
     </section>
 
     <section class="section-block" id="euSecFields">
-      <h2>2. Campos menos preenchidos</h2>
-      <p class="note-muted">Os cartões destacam as maiores lacunas. O gráfico mostra o percentual vazio.</p>
+      <div class="table-toolbar">
+        <h2>2. Campos menos preenchidos</h2>
+        <button type="button" class="btn secondary" id="exportGaps">Exportar CSV</button>
+      </div>
+      <p class="note-muted">Os cartões mostram as três maiores lacunas entre os ${priorityFields.length} campos utilizados em indicadores.</p>
       <div class="kpi-row">
         ${
           topFields.length
@@ -299,13 +324,8 @@ function renderDashboard() {
       </div>
       <div class="chart-grid">
         <article class="chart-card">
-          <h3>Maiores lacunas de preenchimento</h3>
-          <p>Até dez campos com maior percentual vazio.</p>
-          ${hBars(summary.topMissingFields.map((row) => ({ label: row.label, percent: row.missingPercent })))}
-        </article>
-        <article class="chart-card">
-          <h3>Lacunas de preenchimento dos principais campos</h3>
-          <p>${state.showAllPriorityFields ? "Todos os campos principais do recorte." : `Top ${EP_UNFILLED_PRIORITY_CHART_LIMIT} dos campos principais, por percentual vazio.`}</p>
+          <h3>Lacunas nos campos principais</h3>
+          <p>${state.showAllPriorityFields ? `Todos os ${priorityFields.length} campos principais, por percentual vazio.` : `Os ${EP_UNFILLED_PRIORITY_CHART_LIMIT} maiores percentuais vazios entre os ${priorityFields.length} campos principais.`}</p>
           ${hBars(priorityBars.map((row) => ({ label: row.label, percent: row.missingPercent })))}
           ${
             priorityFields.length > EP_UNFILLED_PRIORITY_CHART_LIMIT
@@ -313,12 +333,20 @@ function renderDashboard() {
               : ""
           }
         </article>
+        <article class="chart-card">
+          <h3>Lacunas em todos os campos</h3>
+          <p>Os dez maiores percentuais vazios entre todos os ${summary.fieldCount} campos da tela.</p>
+          ${hBars(summary.topMissingFields.map((row) => ({ label: row.label, percent: row.missingPercent })))}
+        </article>
       </div>
     </section>
 
     <section class="section-block" id="euSecEngineers">
-      <h2>3. EPs com menor preenchimento</h2>
-      <p class="note-muted">A comparação usa a média dos campos do catálogo. Carteiras com menos de ${EP_UNFILLED_MIN_PORTFOLIO} clientes ficam fora do ranking e permanecem na tabela.</p>
+      <div class="table-toolbar">
+        <h2>3. EPs com menor preenchimento</h2>
+        <button type="button" class="btn secondary" id="exportRanking">Exportar CSV</button>
+      </div>
+      <p class="note-muted">A comparação usa a média dos ${priorityFields.length} campos utilizados em indicadores. Carteiras com menos de ${EP_UNFILLED_MIN_PORTFOLIO} clientes ficam fora do ranking e permanecem na tabela.</p>
       <div class="kpi-row">
         ${
           worstEps.length
@@ -334,10 +362,10 @@ function renderDashboard() {
       </div>
       <article class="chart-card">
         <h3>Menor completude por EP</h3>
-        <p>Barras representam o percentual não preenchido nas carteiras elegíveis.</p>
+        <p>Barras representam o percentual não preenchido nos ${priorityFields.length} campos principais das carteiras elegíveis.</p>
         ${hBars(rankedBars.map((row) => ({ label: row.engineer, percent: row.missingPercent })))}
         ${
-          summary.rankedEngineers.length > 8
+          rankedEngineers.length > 8
             ? `<button class="btn secondary" type="button" id="euExpandEngineers">${state.showAllEngineers ? "Mostrar menos" : "Mostrar todos"}</button>`
             : ""
         }
@@ -347,7 +375,7 @@ function renderDashboard() {
     <section class="section-block" id="euSecFieldTable">
       <h2>4. Detalhe por campo</h2>
       <p class="note-muted">Percentual preenchido sobre os clientes do recorte global, recortado só nesta tabela. Faixas: alto ≥ 85%, médio 60% a 84,9%, baixo &lt; 60%.</p>
-      ${tableFilterBar("tf", state.fieldTable, engineerOptions)}
+      ${tableFilterBar("tf", state.fieldTable, engineerOptions, { showScope: true })}
       <div class="table-toolbar">
         <span class="muted">${fmt.format(fields.length)} campos</span>
         <button type="button" class="btn secondary" id="exportFields">Exportar CSV</button>
@@ -356,7 +384,6 @@ function renderDashboard() {
         <table class="gd-table" id="euFieldTable">
           <thead>
             <tr>
-              <th data-sort="domain">Domínio</th>
               <th data-sort="label">Campo</th>
               <th data-sort="filled" class="num">Preenchidos</th>
               <th data-sort="missing" class="num">Vazios</th>
@@ -370,7 +397,6 @@ function renderDashboard() {
                 ? fields
                     .map(
                       (row) => `<tr>
-              <td>${escapeHtml(row.domain)}</td>
               <td>${escapeHtml(row.label)}</td>
               <td class="num">${fmt.format(row.filled)}</td>
               <td class="num">${fmt.format(row.missing)}</td>
@@ -379,7 +405,7 @@ function renderDashboard() {
             </tr>`,
                     )
                     .join("")
-                : `<tr><td colspan="6">Nenhum campo encontrado para os filtros selecionados.</td></tr>`
+                : `<tr><td colspan="5">Nenhum campo encontrado para os filtros selecionados.</td></tr>`
             }
           </tbody>
         </table>
@@ -388,8 +414,8 @@ function renderDashboard() {
 
     <section class="section-block" id="euSecEpTable">
       <h2>5. Detalhe por EP</h2>
-      <p class="note-muted">Completude média da carteira. Os filtros abaixo não alteram a tabela 4.</p>
-      ${tableFilterBar("te", state.epTable, engineerOptions)}
+      <p class="note-muted">Completude média da carteira nos campos selecionados. Os filtros abaixo não alteram a tabela 4.</p>
+      ${tableFilterBar("te", state.epTable, engineerOptions, { showScope: true })}
       <div class="table-toolbar">
         <span class="muted">${fmt.format(engineers.length)} EPs</span>
         <button type="button" class="btn secondary" id="exportEps">Exportar CSV</button>
@@ -437,8 +463,8 @@ function renderDashboard() {
 
     <section class="section-block" id="euSecClientTable">
       <h2>6. Detalhamento de Campos Vazios por EP e por Clientes</h2>
-      <p class="note-muted">Uma linha por cliente com campos vazios no recorte desta tabela. Os filtros abaixo não alteram as seções 4 e 5.</p>
-      ${tableFilterBar("tc", state.clientTable, engineerOptions, { showSeverity: false })}
+      <p class="note-muted">Uma linha por cliente com campos vazios no recorte desta tabela. As listas seguem os filtros abaixo; o percentual usa todos os ${summary.fieldCount} campos. Os filtros não alteram as seções 4 e 5.</p>
+      ${tableFilterBar("tc", state.clientTable, engineerOptions, { showSeverity: false, showScope: true })}
       <div class="table-toolbar">
         <span class="muted">${fmt.format(emptyClients.length)} clientes</span>
         <button type="button" class="btn secondary" id="exportClients">Exportar CSV</button>
@@ -450,8 +476,11 @@ function renderDashboard() {
               <th data-sort="engineer">EP</th>
               <th data-sort="clientName">Cliente</th>
               <th data-sort="clientCode">Código</th>
-              <th data-sort="emptyFields">Campos vazios</th>
-              <th data-sort="emptyCount" class="num">Qtd vazios</th>
+              <th data-sort="priorityEmptyFields">Campos principais vazios</th>
+              <th data-sort="priorityEmptyCount" class="num">Qtd principais</th>
+              <th data-sort="otherEmptyFields">Demais campos vazios</th>
+              <th data-sort="otherEmptyCount" class="num">Qtd demais</th>
+              <th data-sort="emptyCount" class="num">Total vazios</th>
               <th data-sort="fillPercent" class="num">Preenchido</th>
             </tr>
           </thead>
@@ -464,13 +493,16 @@ function renderDashboard() {
               <td>${escapeHtml(row.engineer)}</td>
               <td>${escapeHtml(row.clientName)}</td>
               <td>${escapeHtml(row.clientCode)}</td>
-              <td class="wrap">${escapeHtml(row.emptyFields)}</td>
+              <td class="wrap">${escapeHtml(row.priorityEmptyFields || "—")}</td>
+              <td class="num">${fmt.format(row.priorityEmptyCount)}</td>
+              <td class="wrap">${escapeHtml(row.otherEmptyFields || "—")}</td>
+              <td class="num">${fmt.format(row.otherEmptyCount)}</td>
               <td class="num">${fmt.format(row.emptyCount)}</td>
               <td class="num">${pctLabel(row.fillPercent)}</td>
             </tr>`,
                     )
                     .join("")
-                : `<tr><td colspan="6">Nenhum cliente com campo vazio para os filtros selecionados.</td></tr>`
+                : `<tr><td colspan="9">Nenhum cliente com campo vazio para os filtros selecionados.</td></tr>`
             }
           </tbody>
         </table>
@@ -513,9 +545,46 @@ function renderDashboard() {
     state.clientPage += 1;
     renderDashboard();
   });
+  $("exportSummary")?.addEventListener("click", () => {
+    downloadCsv("baseqv-resumo.csv", [
+      { key: "indicator", header: "Indicador" },
+      { key: "value", header: "Valor" },
+      { key: "unit", header: "Unidade" },
+      { key: "detail", header: "Detalhe" },
+    ], [
+      { indicator: "Completude média", value: summary.averageFill, unit: "%", detail: `Média de ${summary.fieldCount} campos` },
+      { indicator: "Clientes no recorte", value: summary.totalClients, unit: "clientes", detail: "Após os filtros globais" },
+      { indicator: "Campos com preenchimento baixo", value: summary.lowFillFieldCount, unit: "campos", detail: "Abaixo de 60%" },
+      { indicator: "EPs abaixo da mediana", value: summary.engineersBelowMedian, unit: "EPs", detail: summary.medianCompleteness == null ? "Sem carteiras elegíveis" : `Mediana ${pctLabel(summary.medianCompleteness)}; mínimo ${EP_UNFILLED_MIN_PORTFOLIO} clientes` },
+    ]);
+  });
+  $("exportGaps")?.addEventListener("click", () => {
+    const rows = [
+      ...topFields.map((row) => ({ section: "Cartões: campos principais", ...row })),
+      ...priorityFields.map((row) => ({ section: "Lacunas nos campos principais", ...row })),
+      ...summary.topMissingFields.map((row) => ({ section: "Lacunas em todos os campos", ...row })),
+    ];
+    downloadCsv("baseqv-lacunas.csv", [
+      { key: "section", header: "Grupo" },
+      { key: "label", header: "Campo" },
+      { key: "filled", header: "Preenchidos" },
+      { key: "missing", header: "Vazios" },
+      { key: "totalRows", header: "Clientes no recorte" },
+      { key: "missingPercent", header: "% vazio" },
+    ], rows);
+  });
+  $("exportRanking")?.addEventListener("click", () => {
+    downloadCsv("baseqv-ranking-eps.csv", [
+      { key: "engineer", header: "EP" },
+      { key: "totalClients", header: "Carteira" },
+      { key: "completeness", header: "% preenchido" },
+      { key: "missingPercent", header: "% vazio" },
+      { key: "worstField", header: "Campo mais vazio" },
+      { key: "worstFillPercent", header: "% preenchido nesse campo" },
+    ], rankedEngineers);
+  });
   $("exportFields")?.addEventListener("click", () => {
     downloadCsv("dados-nao-preenchidos-campos.csv", [
-      { key: "domain", header: "Domínio" },
       { key: "label", header: "Campo" },
       { key: "filled", header: "Preenchidos" },
       { key: "missing", header: "Vazios" },
@@ -538,8 +607,11 @@ function renderDashboard() {
       { key: "engineer", header: "EP" },
       { key: "clientName", header: "Cliente" },
       { key: "clientCode", header: "Código" },
-      { key: "emptyFields", header: "Campos vazios" },
-      { key: "emptyCount", header: "Qtd vazios" },
+      { key: "priorityEmptyFields", header: "Campos principais vazios" },
+      { key: "priorityEmptyCount", header: "Qtd principais" },
+      { key: "otherEmptyFields", header: "Demais campos vazios" },
+      { key: "otherEmptyCount", header: "Qtd demais" },
+      { key: "emptyCount", header: "Total vazios" },
       { key: "fillPercent", header: "Preenchido" },
     ], emptyClients);
   });

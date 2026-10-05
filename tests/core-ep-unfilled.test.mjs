@@ -11,6 +11,7 @@ import {
 } from "../lib/core-catalog.mjs";
 import {
   defaultCoreGlobalFilters,
+  defaultCoreClientTableFilters,
   defaultCoreTableLocalFilters,
   filterCoreEpUnfilledClients,
   summarizeCoreEmptyClients,
@@ -19,6 +20,7 @@ import {
   summarizeCoreFieldTable,
   summarizeCorePriorityFields,
 } from "../lib/core-filters.mjs";
+import { summarizeCoreEmptyClients as summarizeBrowserCoreEmptyClients } from "../public/lib/core-filters.mjs";
 
 function fullContext(overrides = {}) {
   return {
@@ -170,6 +172,9 @@ test("filtros e agregações mantêm comportamento da tela BaseQV", () => {
 });
 
 test("campos principais pertencem ao catálogo e ordenam por lacuna", () => {
+  assert.equal(CORE_EP_UNFILLED_CATALOG.length, 18);
+  assert.equal(CORE_EP_UNFILLED_PRIORITY_FIELD_IDS.length, 15);
+  assert.ok(!CORE_EP_UNFILLED_PRIORITY_FIELD_IDS.includes("phone"));
   for (const id of CORE_EP_UNFILLED_PRIORITY_FIELD_IDS) {
     assert.ok(CORE_EP_UNFILLED_CATALOG.some((field) => field.id === id), id);
   }
@@ -178,6 +183,63 @@ test("campos principais pertencem ao catálogo e ordenam por lacuna", () => {
     client({ clientId: "u2", fills: fills({ phone: false }) }),
   ];
   const priority = summarizeCorePriorityFields(rows);
-  assert.equal(priority[0].id, "phone");
+  assert.equal(priority[0].id, "cpf");
+  assert.ok(!priority.some((row) => row.id === "phone"));
   assert.ok(priority[0].missingPercent >= priority[1].missingPercent);
+});
+
+test("lacunas do cliente separam principais dos demais e mantêm completude global", () => {
+  const rows = [client({ fills: fills({ cpf: false, phone: false, alternative_email: false, cycle_end: false }) })];
+  const [all] = summarizeCoreEmptyClients(rows);
+  assert.equal(all.priorityEmptyFields, "CPF");
+  assert.equal(all.priorityEmptyCount, 1);
+  assert.equal(all.otherEmptyFields, "Telefone, E-mail alternativo, Fim do ciclo");
+  assert.equal(all.otherEmptyCount, 3);
+  assert.equal(all.emptyCount, 4);
+  assert.equal(all.fillPercent, 77.8);
+
+  const [filtered] = summarizeCoreEmptyClients(rows, { field: "phone" });
+  assert.equal(filtered.priorityEmptyCount, 0);
+  assert.equal(filtered.otherEmptyCount, 1);
+  assert.equal(filtered.emptyCount, 1);
+  assert.equal(filtered.fillPercent, 77.8);
+  assert.deepEqual(summarizeBrowserCoreEmptyClients(rows, { field: "phone" }), [filtered]);
+});
+
+test("detalhe Core inicia em campos dos indicadores e alterna para todos", () => {
+  const rows = [client({ fills: fills({ cpf: false, phone: false, alternative_email: false }) })];
+  const defaults = defaultCoreClientTableFilters();
+  assert.equal(defaults.scope, "indicators");
+  const [indicators] = summarizeCoreEmptyClients(rows, defaults);
+  assert.equal(indicators.priorityEmptyCount, 1);
+  assert.equal(indicators.otherEmptyCount, 0);
+  assert.equal(indicators.emptyCount, 1);
+  const [all] = summarizeCoreEmptyClients(rows, { ...defaults, scope: "all" });
+  assert.equal(all.otherEmptyFields, "Telefone, E-mail alternativo");
+  assert.equal(all.otherEmptyCount, 2);
+  assert.equal(all.emptyCount, 3);
+  assert.equal(all.fillPercent, indicators.fillPercent);
+  assert.deepEqual(summarizeBrowserCoreEmptyClients(rows, defaults), [indicators]);
+  assert.deepEqual(summarizeBrowserCoreEmptyClients(rows, { ...defaults, scope: "all" }), [all]);
+});
+
+test("tabelas Core de campos e EPs usam o mesmo recorte de indicadores", () => {
+  const rows = [client({ fills: fills({ cpf: false, phone: false, alternative_email: false }) })];
+  const indicators = defaultCoreClientTableFilters();
+  const all = { ...indicators, scope: "all" };
+  assert.equal(summarizeCoreFieldTable(rows, indicators).length, CORE_EP_UNFILLED_PRIORITY_FIELD_IDS.length);
+  assert.equal(summarizeCoreFieldTable(rows, all).length, CORE_EP_UNFILLED_CATALOG.length);
+  assert.equal(summarizeCoreFieldTable(rows, indicators).some((row) => row.id === "alternative_email"), false);
+  assert.equal(summarizeCoreFieldTable(rows, indicators).some((row) => row.id === "phone"), false);
+  assert.equal(summarizeCoreFieldTable(rows, all).some((row) => row.id === "alternative_email"), true);
+  assert.ok(summarizeCoreEpTable(rows, indicators)[0].completeness > summarizeCoreEpTable(rows, all)[0].completeness);
+});
+
+test("ranking principal Core por EP ignora telefone", () => {
+  const rows = Array.from({ length: CORE_EP_UNFILLED_MIN_PORTFOLIO }, (_, index) =>
+    client({ clientId: `rank${index}`, fills: fills({ contract_signed: false, phone: false }) }),
+  );
+  const [ranked] = summarizeCoreEpTable(rows, { scope: "indicators" }).filter((row) => row.rankEligible);
+  assert.equal(ranked.worstField, "Contrato assinado");
+  assert.ok(ranked.completeness > summarizeCoreEpTable(rows, { scope: "all" })[0].completeness);
 });
