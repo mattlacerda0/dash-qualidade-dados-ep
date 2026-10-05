@@ -3,8 +3,6 @@ import {
 } from "/lib/catalog.mjs";
 import {
   buildCompareFillRows,
-  intersectionCoreCatalog,
-  intersectionQvCatalog,
   splitCompareCatalog,
   summarizeCompareFills,
 } from "/lib/compare-catalog.mjs";
@@ -30,8 +28,6 @@ const fmt = new Intl.NumberFormat("pt-BR");
 const pctFmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const deltaFmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, signDisplay: "exceptZero" });
 const COMPARE = splitCompareCatalog();
-const QV_INTERSECTION = intersectionQvCatalog(COMPARE);
-const CORE_INTERSECTION = intersectionCoreCatalog(COMPARE);
 const DATA_FETCH_TIMEOUT_MS = 45_000;
 const CHART_LIMIT = 10;
 
@@ -193,8 +189,8 @@ function pairBars(items) {
 function currentView() {
   const qvClients = filterEpUnfilledClients(state.qvPayload?.clients || [], state.qvGlobal);
   const coreClients = filterCoreEpUnfilledClients(state.corePayload?.clients || [], state.coreGlobal);
-  const qvFields = summarizeFieldTable(qvClients, defaultTableLocalFilters(), QV_INTERSECTION);
-  const coreFields = summarizeCoreFieldTable(coreClients, defaultCoreTableLocalFilters(), CORE_INTERSECTION);
+  const qvFields = summarizeFieldTable(qvClients, defaultTableLocalFilters());
+  const coreFields = summarizeCoreFieldTable(coreClients, defaultCoreTableLocalFilters());
   const rows = buildCompareFillRows(qvFields, coreFields, COMPARE).map((row) => ({
     ...row,
     absDelta: Math.abs(Number(row.delta) || 0),

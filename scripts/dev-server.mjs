@@ -84,7 +84,6 @@ function sendJson(res, status, body) {
 
 const BROWSER_LIB = new Set([
   "/lib/catalog.mjs",
-  "/lib/compare-catalog.mjs",
   "/lib/core-catalog.mjs",
   "/lib/core-filters.mjs",
   "/lib/filters.mjs",

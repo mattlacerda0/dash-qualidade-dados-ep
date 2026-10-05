@@ -24,6 +24,9 @@ import {
   summarizeFieldTable,
   summarizePriorityFields,
 } from "../lib/filters.mjs";
+import { buildCompareFillRows as buildBrowserCompareFillRows, splitCompareCatalog as splitBrowserCompareCatalog } from "../public/lib/compare-catalog.mjs";
+import { summarizeFieldTable as summarizeBrowserQvFields } from "../public/lib/filters.mjs";
+import { summarizeCoreFieldTable as summarizeBrowserCoreFields } from "../public/lib/core-filters.mjs";
 
 const QV_ONLY_IDS = [
   "objetivo_principal",
@@ -160,4 +163,15 @@ test("buildCompareFillRows casa o par conceitual e calcula delta Pharus − QV",
   assert.equal(summary.fieldCount, 17);
   assert.ok(summary.qvAhead >= 1);
   assert.ok(summary.pharusAhead >= 1);
+});
+
+test("módulos públicos calculam a comparação com percentuais das duas fontes", () => {
+  const split = splitBrowserCompareCatalog();
+  assert.deepEqual(split, splitCompareCatalog());
+  const qvRows = summarizeBrowserQvFields([qvClient({ fills: qvFills({ email: false }) })], defaultTableLocalFilters());
+  const coreRows = summarizeBrowserCoreFields([coreClient({ fills: coreFills({ alternative_email: true }) })], defaultCoreTableLocalFilters());
+  const compared = buildBrowserCompareFillRows(qvRows, coreRows, split);
+  assert.equal(compared.length, split.intersection.length);
+  assert.ok(compared.every((row) => row.qvFillPercent !== null && row.pharusFillPercent !== null));
+  assert.equal(compared.find((row) => row.id === "email")?.delta, 100);
 });
