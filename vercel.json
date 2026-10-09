@@ -5,6 +5,12 @@
     },
     "api/core-ep-unfilled.js": {
       "maxDuration": 60
+    },
+    "api/export-ep-unfilled.js": {
+      "maxDuration": 60
+    },
+    "api/export-core-ep-unfilled.js": {
+      "maxDuration": 60
     }
   }
 }

@@ -52,8 +52,26 @@
       <div class="filter-actions">
         <button type="button" class="btn secondary" id="btnResetGlobal">Limpar filtros</button>
         <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+        <button type="button" class="btn secondary" id="btnExport">Extrair XLSX</button>
       </div>
     </section>
+
+    <dialog class="export-dialog" id="exportDialog" aria-labelledby="exportTitle">
+      <form method="dialog" id="exportForm">
+        <h2 id="exportTitle">Extrair base App Pharus</h2>
+        <p>Uma linha por cliente e campo da base de preenchimento. A extração ignora os filtros da tela e não inclui valores sensíveis.</p>
+        <fieldset>
+          <legend>Selecione o conteúdo</legend>
+          <label><input type="radio" name="mode" value="full" checked /> Base completa (preenchidos e vazios)</label>
+          <label><input type="radio" name="mode" value="missing" /> Apenas dados faltantes</label>
+        </fieldset>
+        <p class="export-error hidden" id="exportError" role="alert"></p>
+        <div class="export-actions">
+          <button type="button" class="btn secondary" id="exportCancel">Cancelar</button>
+          <button type="submit" class="btn" id="exportConfirm">Baixar XLSX</button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="pageError" class="error-banner hidden" role="alert"></div>
     <div id="pageStatus" class="gd-status hidden" role="status"></div>

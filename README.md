@@ -22,6 +22,7 @@ Se o `.env` local estiver vazio, o servidor de desenvolvimento tenta as mesmas c
 cp .env.example .env
 # preencha DATA_SUPABASE_*
 
+npm install
 npm start
 ```
 
@@ -32,6 +33,10 @@ Abra `http://localhost:3011`.
 - `GET /api/health` — status do processo
 - `GET /api/ep-unfilled` — payload (clientes + catálogo)
 - `GET /api/core-ep-unfilled` — payload do App Pharus/Core (clientes + catálogo correlacionado)
+- `GET /api/export-ep-unfilled?mode=full|missing` — XLSX da base de preenchimento BaseQV
+- `GET /api/export-core-ep-unfilled?mode=full|missing` — XLSX da base de preenchimento App Pharus
+
+Cada tela de dados tem um único botão **Extrair XLSX**. Após o clique, escolha a base completa (todos os pares cliente/campo do catálogo) ou apenas os campos vazios. A extração ignora filtros e paginação da tela; a página de comparação não oferece exportação. O arquivo contém EP, identificação do cliente, campo e estado de preenchimento, mas não valores brutos de CPF, telefone, e-mail ou finanças.
 
 ## Filtros
 

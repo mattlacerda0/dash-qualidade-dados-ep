@@ -260,6 +260,26 @@ input, select {
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.export-dialog {
+  width: min(480px, calc(100vw - 32px));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  color: var(--foreground);
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 18%);
+}
+
+.export-dialog::backdrop { background: rgb(0 0 0 / 42%); }
+.export-dialog h2 { margin: 0 0 12px; font-size: 20px; }
+.export-dialog p { margin: 0 0 16px; line-height: 1.5; }
+.export-dialog fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+.export-dialog legend { font-weight: 700; margin-bottom: 10px; }
+.export-dialog fieldset label { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.export-dialog input[type="radio"] { accent-color: var(--primary); }
+.export-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.export-error { color: #a12b22; }
+
 .btn:focus-visible,
 input:focus-visible,
 select:focus-visible {

@@ -92,26 +92,6 @@ function sortRows(rows, key, dir) {
   return list;
 }
 
-function csvEscape(value) {
-  const text = value == null ? "" : String(value);
-  if (/[",\n;]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-
-function downloadCsv(filename, columns, rows) {
-  const header = columns.map((col) => csvEscape(col.header)).join(";");
-  const body = rows
-    .map((row) => columns.map((col) => csvEscape(row[col.key])).join(";"))
-    .join("\n");
-  const blob = new Blob([`\uFEFF${header}\n${body}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 function exclusiveTable(rows, sourceLabel) {
   const sorted = [...rows].sort(
     (a, b) => a.domain.localeCompare(b.domain, "pt-BR") || a.label.localeCompare(b.label, "pt-BR"),
@@ -367,7 +347,6 @@ function renderDashboard() {
       <p class="note-muted">Percentual preenchido em cada carteira. A diferença é Pharus menos Base QV, em pontos percentuais.</p>
       <div class="table-toolbar">
         <span class="muted">${fmt.format(rows.length)} campos</span>
-        <button type="button" class="btn secondary" id="exportFields">Exportar CSV</button>
       </div>
       <div class="table-wrap">
         <table class="gd-table" id="euFieldTable">
@@ -405,15 +384,6 @@ function renderDashboard() {
   $("euExpandChart")?.addEventListener("click", () => {
     state.showAllChart = !state.showAllChart;
     renderDashboard();
-  });
-  $("exportFields")?.addEventListener("click", () => {
-    downloadCsv("comparacao-preenchimento-campos.csv", [
-      { key: "domain", header: "Domínio" },
-      { key: "label", header: "Campo" },
-      { key: "qvFillPercent", header: "Base QV" },
-      { key: "pharusFillPercent", header: "Pharus" },
-      { key: "delta", header: "Diferença (p.p.)" },
-    ], rows);
   });
   content.querySelectorAll("#euFieldTable th[data-sort]").forEach((th) => {
     th.addEventListener("click", () => {

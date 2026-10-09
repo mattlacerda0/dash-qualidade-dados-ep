@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleCoreEpUnfilledApi } from "../lib/api/core-ep-unfilled-handler.mjs";
 import { handleEpUnfilledApi } from "../lib/api/ep-unfilled-handler.mjs";
+import { handleExportApi } from "../lib/api/export-handler.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const PORT = Number(process.env.PORT || 3011);
@@ -141,6 +142,17 @@ const server = createServer(async (req, res) => {
       if (!res.headersSent) {
         sendJson(res, 500, { error: "Falha interna.", code: "INTERNAL" });
       }
+    }
+    return;
+  }
+
+  if (apiPath === "/api/export-ep-unfilled" || apiPath === "/api/export-core-ep-unfilled") {
+    loadLocalEnv();
+    try {
+      await handleExportApi(req, res, apiPath === "/api/export-core-ep-unfilled" ? "core" : "baseqv");
+    } catch (error) {
+      console.error("[dev] export", error);
+      if (!res.headersSent) sendJson(res, 500, { error: "Falha interna.", code: "INTERNAL" });
     }
     return;
   }
